@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SBERT</title>
+    <style>
+
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            justify-content: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        select {
+            padding: 10px;
+            margin-right: 20px;
+            font-size: 16px;
+        }
+        .query-display {
+            padding: 10px;
+            font-size: 16px;
+            background-color: #e0e0e0;
+            border-radius: 4px;
+            min-width: 200px;
+        }
+        textarea {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            resize: vertical;
+        }
+        #query_text {
+            width: 100%;
+            height: 40px; /* Reduced height */
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            margin-top: 10px; /* Adjusted margin */
+            resize: vertical; /* Allows vertical resizing */
+        }
+        #article_text, #comm_text{
+            width: 100%;
+            height: 90px; /* Reduced height */
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            margin-top: 10px; /* Adjusted margin */
+            resize: vertical; /* Allows vertical resizing */
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f0f0f0;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Select a Query Pair</h1>
+        <div class="form-group">
+            <label for="query_pair">Query Pair:</label>
+            <select id="query_pair" name="query_pair" onchange="fetchQueryDetails()">
+                <option value="">Select a query pair</option> <!-- Default empty option -->
+                {% for pair in query_pairs %}
+                    <option value="{{ pair }}">{{ pair }}</option>
+                {% endfor %}
+            </select>
+            <div id="selected_query" class="query-display">Select a query pair</div>
+        </div>
+        <textarea id="query_text" readonly></textarea>
+
+        <h2>Retrieval Details</h2>
+        <table id="query_details">
+            <thead>
+                <tr>
+                    <th>Ground Truth</th>
+                    <th>Predicted</th>
+                    <th>Precision</th>
+                    <th>Recall</th>
+                    <th>F2 Score</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Table rows will be added dynamically via JavaScript -->
+            </tbody>
+        </table>
+        <h2>Article Details</h2>
+        <div class="form-group">
+            <label for="article_id">Article ID:</label>
+            <select id="article_id" name="article_id" onchange="fetchArticle()">
+                <option value="">Select an article ID</option> <!-- Default empty option -->
+            </select>
+            <div id="selected_article" class="query-display">Select an article ID</div>
+        </div>
+        <b></b>
+            <h4>Article Text</h4>
+
+        <textarea id="article_text" readonly></textarea>
+        <h3><div id="cosine_similarity" class="cosine-similarity-display"></div></h3>
+
+
+
+
+<!--        <h3>Commentary Text</h3>-->
+
+<!--        <textarea id="comm_text" readonly></textarea>-->
+        <u><h2>Explainability</h2></u>
+
+
+
+        <div class="flex-container">
+            <div class="form-group-column">
+                <label for="query_sentences"><b>Query Sentences:</b></label>
+                <select id="query_sentences" name="query_sentences" onchange="displaySelectedQuerySentence()">
+                    <option value="">Select a query sentence</option>
+
+                </select>
+                <br><br>
+                <label for="query_sentence_text">Selected Query sentence:</label>
+                <br><br>
+                <textarea id="query_sentence_text" readonly> </textarea>
+            </div><br>
+            <div class="form-group-column">
+                <label for="article_sentences"><b>Article Sentences:</b></label>
+                <select id="article_sentences" name="article_sentences" onchange="displaySelectedArticleSentence()">
+                    <option value="">Select an article sentence</option>
+
+                </select><br><br>
+                <label for="article_sentence_text">Selected Article sentence:</label>
+                <br><br>
+                <textarea id="article_sentence_text" readonly></textarea>
+            </div>
+        </div>
+        <h3><div id="cosine_similarity_sentence" class="cosine-similarity-display"></div></h3>
+        <h2>Most similar sentence in the article to the query : </h2><div id="highest_similar_sentence"> </div>
+
+        <!-- Venn diagram container -->
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.16.0/d3.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/venn.js@0.2.20/build/venn.min.js"></script>
+    <script>
+        function fetchQueryDetails() {
+            const select = document.getElementById('query_pair');
+            const queryPair = select.value;
+
+            if (queryPair === "") {
+                document.getElementById('selected_query').innerText = "Select a query pair";
+                document.getElementById('query_text').value = "";
+                clearQueryDetails();
+                return;
+            }
+
+            fetch('/get_bert_query_details', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ pair: queryPair })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('selected_query').innerText = queryPair;
+                document.getElementById('query_text').value = data.query_text;
+                populateQueryDetails(data.query_details);
+
+            })
+            .catch(error => console.error('Error:', error));
+
+            fetch('/get_bert_article_ids', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ pair: queryPair })
+            })
+            .then(response => response.json())
+            .then(data => {
+                populateArticleIds(data.article_ids);
+            })
+            .catch(error => console.error('Error:', error));
+        }
+
+        function populateQueryDetails(details) {
+            const tableBody = document.querySelector('#query_details tbody');
+            tableBody.innerHTML = '';
+
+            details.forEach(detail => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${detail.article_num}</td>
+                    <td>${detail.predicted}</td>
+                    <td>${detail.precision}</td>
+                    <td>${detail.recall}</td>
+                    <td>${detail.f2}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+
+        function clearQueryDetails() {
+            const tableBody = document.querySelector('#query_details tbody');
+            tableBody.innerHTML = '';
+        }
+
+        function populateArticleIds(articleIds) {
+            const select = document.getElementById('article_id');
+            select.innerHTML = '<option value="">Select an article ID</option>'; // Clear previous options
+
+            articleIds.forEach(id => {
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = id;
+                select.appendChild(option);
+            });
+        }
+
+        function fetchArticle() {
+            const select = document.getElementById('article_id');
+            const articleId = select.value;
+
+            const select_pair = document.getElementById('query_pair');
+            const queryPair = select_pair.value;
+
+            if (articleId === "") {
+                document.getElementById('selected_article').innerText = "Select an article ID";
+                document.getElementById('article_text').value = "";
+                return;
+            }
+
+            fetch('/get_article', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ article_id: articleId }) // Sending articleId as pair for simplicity
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('selected_article').innerText = articleId;
+                document.getElementById('article_text').value = data.article_text;
+                // document.getElementById('comm_text').value = data.commentary_text;
+                fetchCosineSimilarity(queryPair, articleId);
+
+            })
+            .catch(error => console.error('Error:', error));
+        }
+        function fetchCosineSimilarity(queryPair, articleId) {
+            fetch('/get_bert_article_sim_score', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ pair: queryPair, article_id: articleId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('cosine_similarity').innerText = "Transformed Cosine Similarity : " + data.cosine_sim.toFixed(2);
+
+                populateSentences(queryPair,articleId);
+                console.log()
+            })
+
+
+            .catch(error => console.error('Error:', error));
+        }
+
+        function populateSentences(queryPair, articleId) {
+            fetch('/get_bert_sentences', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ pair: queryPair, article_id: articleId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                query_sentences = data.query_sentences;
+                article_sentences = data.article_sentences;
+                populateQuerySentences(query_sentences);
+                populateArticleSentences(article_sentences);
+
+            })
+
+            .catch(error => console.error('Error:', error));
+        }
+
+        function populateQuerySentences(sentences) {
+            const select = document.getElementById('query_sentences');
+            select.innerHTML = '<option value="">Select a query sentence</option>'; // Clear previous options
+
+            sentences.forEach((sentence, index) => {
+                const option = document.createElement('option');
+                option.value = index; // Use index as value
+                option.textContent = sentence
+                select.appendChild(option);
+            });
+        }
+
+        function populateArticleSentences(sentences) {
+            const select = document.getElementById('article_sentences');
+            select.innerHTML = '<option value="">Select an article sentence</option>'; // Clear previous options
+
+            sentences.forEach((sentence, index) => {
+                const option = document.createElement('option');
+                option.value = index; // Use index as value
+                option.textContent = sentence;
+
+
+                select.appendChild(option);
+            });
+        }
+         function displaySelectedQuerySentence() {
+            const select = document.getElementById('query_sentences');
+            const selectedSentence = select.options[select.selectedIndex].text;
+            document.getElementById('query_sentence_text').value = selectedSentence;
+             document.getElementById('cosine_similarity_sentence').innerText = ""
+        }
+
+        function displaySelectedArticleSentence() {
+            const select = document.getElementById('article_sentences');
+            const selectedSentence = select.options[select.selectedIndex].text;
+            document.getElementById('article_sentence_text').value = selectedSentence;
+            document.getElementById('cosine_similarity_sentence').innerText = ""
+
+            fetch_sentence_similarity();
+        }
+
+        function fetch_sentence_similarity(){
+            const select = document.getElementById('article_id');
+            const articleId = select.value;
+
+            const select_pair = document.getElementById('query_pair');
+            const queryPair = select_pair.value;
+
+            const select_query_sentence = document.getElementById('query_sentences');
+            const query_sentence = select_query_sentence.options[select_query_sentence.selectedIndex].text;
+
+            const select_article_sentence = document.getElementById('article_sentences');
+            const article_sentence = select_article_sentence.options[select_article_sentence.selectedIndex].text;
+
+            fetch('/get_bert_sentence_score', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ query_pair: queryPair, article_id: articleId,query_sentence: query_sentence, article_sentence: article_sentence })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('cosine_similarity_sentence').innerText = "Transformed Cosine Similarity between these sentences : " + data.cosine_sim.toFixed (3)
+                document.getElementById('highest_similar_sentence').innerText =   "\n"+data.max_sim_sentence + " \n\n Similarity score : " + data.max_sim.toFixed(3)
+
+            })
+            .catch(error => console.error('Error:', error));
+        }
+    </script>
+</body>
+</html>

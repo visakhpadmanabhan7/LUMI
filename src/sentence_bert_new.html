@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>SBERT</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            justify-content: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+        }
+
+        .welcome-heading {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            background-color: #05174D; /* A nice blue color */
+            color: white; /* White text color for contrast */
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .form-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        select {
+            padding: 10px;
+            margin-right: 20px;
+            font-size: 16px;
+        }
+
+        .query-display, .text-display {
+            padding: 10px;
+            font-size: 16px;
+            background-color: #e0e0e0;
+            border-radius: 4px;
+            min-width: 200px;
+            white-space: pre-wrap; /* Preserves whitespace formatting */
+        }
+
+        .text-display[contenteditable] {
+            background-color: #fff;
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 4px;
+            min-height: 50px;
+            overflow-y: auto;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            resize: vertical;
+        }
+        #substring_length{
+            background-color: #05174D
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f0f0f0;
+        }
+
+        .highlight {
+            background-color: yellow;
+        }
+
+        /* Spinner styles */
+        .spinner {
+            display: none; /* Initially hidden */
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(0, 0, 0, 0.1);
+            border-top-color: #3498db;
+            border-radius: 50%;
+            animation: spin 1s infinite linear;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        @keyframes spin {
+            0% {
+                transform: translate(-50%, -50%) rotate(0deg);
+            }
+            100% {
+                transform: translate(-50%, -50%) rotate(360deg);
+            }
+        }
+
+        #toggleButton {
+            background-color: #05174D; /* Blue background */
+            border: none; /* Remove default border */
+            color: white; /* White text color */
+            padding: 10px 20px; /* Padding for a decent-sized button */
+            text-align: center; /* Center text */
+            text-decoration: none; /* Remove underline */
+            display: inline-block; /* Ensure it behaves like a button */
+            font-size: 16px; /* Set font size */
+            margin: 10px 0; /* Margin to add space around the button */
+            cursor: pointer; /* Change cursor on hover */
+            border-radius: 8px; /* Rounded corners */
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
+            transition: background-color 0.3s ease, box-shadow 0.3s ease; /* Smooth transition for hover effects */
+        }
+
+        #toggleButton:hover {
+            background-color: #218838; /* Darker blue on hover */
+            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15); /* Slightly larger shadow on hover */
+        }
+          /* Change border color of the query text box when focused */
+        .text-display[contenteditable="true"]:focus {
+            border: 2px solid #05174D; /* Apply blue color when focused */
+            outline: none; /* Remove default outline */
+        }
+        input[type='range']{ accent-color: #05174D;; }
+
+
+
+.highlighted-title {
+/*text color in yellow
+*/
+    color: yellow;
+}
+
+
+
+    .text-display::selection {
+    background-color: yellow; /* Highlight selected text in yellow */
+}
+
+.query-display::selection {
+    background-color: yellow; /* Highlight selected text in yellow */
+}
+
+
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1 class="welcome-heading">Welcome to&nbsp;<span class = "highlighted-title"> LUMI</span>
+        <!--        <img src="lumi.png" alt="Bulb Icon">-->
+    </h1>
+
+
+    <div class="form-group">
+<label for="model_selection">Select SBERT model : &nbsp;</label>
+
+        <select id="model_selection" name="model_selection">
+            <option value="">-----</option>
+            <option value="BGE-M3">BGE-M3</option>
+            <option value="BGE-M3">BGE-M3(Coliee Finetuned)</option>
+            <option value="BGE-M3">Mpnet</option>
+
+        </select>
+        <label for="query_pair">Select query Pair : &nbsp;</label>
+        <select id="query_pair" name="query_pair" onchange="fetchQueryDetails()">
+            <option value="">-----</option>
+            {% for pair in query_pairs %}
+            <option value="{{ pair }}">{{ pair }}</option>
+            {% endfor %}
+        </select>
+        <div class="query-display" id="selected_query">----</div>
+    </div>
+    <h4>Query Text : &nbsp;</h4>
+    <div class="text-display" contenteditable="true" id="query_text" onmouseup="highlightQuery()"></div>
+
+    <br>
+    <div class="form-group">
+        <br>
+        <label for="article_id">Select article : &nbsp;</label>
+        <select id="article_id" name="article_id" onchange="fetchArticle()">
+            <option value="">Select an article ID</option>
+        </select>
+        <div class="query-display" id="selected_article">Select an article ID</div>
+        &nbsp; &nbsp;
+      <label for="substring_length">Adjust article substring length:</label>
+        <input id="substring_length" max="30" min="5" name="substring_length" oninput="updateLengthDisplay(this.value)" type="range"
+               value="5">
+        <span id="substring_length_value">5</span>
+    </div>
+    <h4>
+        <div class="cosine-similarity-display" id="cosine_similarity"></div>
+    </h4>
+
+
+    <div class="form-group">
+
+    </div>
+    <h4>Article Text : &nbsp;</h4>
+
+
+    <div class="text-display" contenteditable="false" id="article_text"></div>
+    <!--     <div class="form-group">-->
+    <!--        <label for="substring_length">Select Word length and highlight query text:</label>-->
+    <!--        <select id="substring_length" name="substring_length" onchange="highlightQuery()">-->
+    <!--        </select>-->
+    <!--    </div>-->
+<h4>
+        <div class="sentence-similarity" id="sentence_similarity"></div>
+    </h4>
+
+    <div class="spinner" id="loading-spinner"></div>
+    <button id="toggleButton" onclick="toggleTable()">Show Retrieval Details</button>
+
+    <div id="retrieval_details" style="display: none;">
+        <table id="query_details">
+            <thead>
+            <tr>
+                <th>Ground Truth</th>
+                <th>Predicted</th>
+                <th>Precision</th>
+                <th>Recall</th>
+                <th>F2 Score</th>
+            </tr>
+            </thead>
+            <tbody>
+            <!-- Table rows will be added dynamically via JavaScript -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.16.0/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/venn.js@0.2.20/build/venn.min.js"></script>
+<script>
+    // document.addEventListener('DOMContentLoaded', () => {
+    //     const substringLengthSelect = document.getElementById('substring_length');
+    //     for (let i = 5; i <= 15; i++) {
+    //         const option = document.createElement('option');
+    //         option.value = i;
+    //         option.textContent = i;
+    //         substringLengthSelect.appendChild(option);
+    //     }
+    // });
+
+    // document.addEventListener('DOMContentLoaded', () => {
+    //     const substringLengthSlider = document.getElementById('substring_length');
+    //     const substringLengthValue = document.getElementById('substring_length_value');
+    //     // Initialize the display with the default value
+    //     substringLengthValue.textContent = substringLengthSlider.value;
+    //
+    //     // Update the display value when the slider is moved
+    //     substringLengthSlider.addEventListener('input', () => {
+    //         substringLengthValue.textContent = substringLengthSlider.value;
+    //
+    //         highlightQuery(highlighted_query);  // Update the highlighted text as well when slider is moved
+    //     });
+    // });
+
+    function updateLengthDisplay(value) {
+        document.getElementById('substring_length_value').textContent = value;
+    }
+
+
+    function fetchQueryDetails() {
+        const select = document.getElementById('query_pair');
+        const queryPair = select.value;
+
+        if (queryPair === "") {
+            document.getElementById('selected_query').innerText = "Select a query pair";
+            document.getElementById('query_text').innerText = "";
+            clearQueryDetails();
+            return;
+        }
+
+        // Show loading spinner
+        showLoadingSpinner();
+
+        fetch('/get_bert_query_details', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({pair: queryPair})
+        })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('selected_query').innerText = queryPair;
+                document.getElementById('query_text').innerText = data.query_text;
+                populateQueryDetails(data.query_details);
+                // Hide loading spinner after fetching data
+                hideLoadingSpinner();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                hideLoadingSpinner(); // Hide spinner in case of error
+            });
+
+        fetch('/get_bert_article_ids', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({pair: queryPair})
+        })
+            .then(response => response.json())
+            .then(data => {
+                populateArticleIds(data.article_ids);
+            })
+            .catch(error => console.error('Error:', error));
+    }
+
+    function populateQueryDetails(details) {
+        const tableBody = document.querySelector('#query_details tbody');
+        tableBody.innerHTML = '';
+
+        details.forEach(detail => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${detail.article_num}</td>
+                <td>${detail.predicted}</td>
+                <td>${detail.precision}</td>
+                <td>${detail.recall}</td>
+                <td>${detail.f2}</td>
+            `;
+            tableBody.appendChild(row);
+        });
+    }
+
+    function clearQueryDetails() {
+        const tableBody = document.querySelector('#query_details tbody');
+        tableBody.innerHTML = '';
+    }
+
+    function populateArticleIds(articleIds) {
+        const select = document.getElementById('article_id');
+        select.innerHTML = '<option value="">Select an article ID</option>'; // Clear previous options
+
+        articleIds.forEach(id => {
+            const option = document.createElement('option');
+            option.value = id;
+            option.textContent = id;
+            select.appendChild(option);
+        });
+    }
+
+    function fetchArticle() {
+        const select = document.getElementById('article_id');
+        const articleId = select.value;
+
+        const select_pair = document.getElementById('query_pair');
+        const queryPair = select_pair.value;
+
+        if (articleId === "") {
+            document.getElementById('selected_article').innerText = "Select an article ID";
+            document.getElementById('article_text').innerText = "";
+            return;
+        }
+
+        // Show loading spinner
+        showLoadingSpinner();
+
+
+        fetch('/get_article', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({article_id: articleId}) // Sending articleId as pair for simplicity
+        })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('selected_article').innerText = articleId;
+                document.getElementById('article_text').innerText = data.article_text;
+                fetchCosineSimilarity(queryPair, articleId);
+                // Hide loading spinner after fetching data
+                hideLoadingSpinner();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                hideLoadingSpinner(); // Hide spinner in case of error
+            });
+    }
+
+    function fetchCosineSimilarity(queryPair, articleId) {
+        // Show loading spinner
+        showLoadingSpinner();
+
+        fetch('/get_bert_article_sim_score', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({pair: queryPair, article_id: articleId})
+        })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('cosine_similarity').innerText = "Dot Product Similarity between query and selected article : " + data.cosine_sim.toFixed(2);
+                // Hide loading spinner after fetching data
+                hideLoadingSpinner();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                hideLoadingSpinner(); // Hide spinner in case of error
+            });
+    }
+    let storedHighlightedText = ''; // Global variable to store the selected highlighted text
+
+    function highlightQuery(highlighted_query = null) {
+        // Determine the text to highlight
+        let selectedText = "";
+        clickCount = 0;  // Reset the click count
+        if (highlighted_query === null) {
+            selectedText = window.getSelection().toString(); // Get user-selected text
+        } else {
+            selectedText = highlighted_query; // Use the passed highlighted_query
+        }
+
+        console.log("Selected Text: ", selectedText);
+        const words = selectedText.trim().split(/\s+/); // Split the selected text into words
+        const substringLength = parseInt(document.getElementById('substring_length').value); // Get the slider value
+        const article_id = document.getElementById('article_id').value; // Get the selected article ID
+
+        if (words.length >= 3) { // Only proceed if 3 or more words are selected
+            const articleText = document.getElementById('article_text').innerText;
+
+            // Show loading spinner
+            showLoadingSpinner();
+
+            const queryTextElement = document.getElementById('query_text');
+            removeHighlights();
+
+            queryTextElement.innerHTML = queryTextElement.innerHTML.replace(
+                new RegExp(`(${selectedText})`, 'gi'),
+                `<span class="highlight">$1</span>`
+            );
+
+            // Store the selected text globally
+            storedHighlightedText = selectedText;
+
+            // Make a request to highlight the sentence on the server
+            fetch('/highlight_sentence', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    article_id: article_id,
+                    highlighted_query: selectedText,
+                    substring_length: substringLength
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                const highlightedText = data.highlighted_text;
+                document.getElementById('article_text').innerHTML = articleText.replace(highlightedText, `<span class="highlight">${highlightedText}</span>`);
+                document.getElementById('sentence_similarity').innerText = "Dot product similarity score between selected query text and the highlighted article text: " + data.similarity_score.toFixed(2);
+                // Hide loading spinner after fetching data
+                hideLoadingSpinner();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                hideLoadingSpinner(); // Hide spinner in case of error
+            });
+        } else {
+            console.log("Please select at least 3 words.");
+        }
+    }
+
+    // Event listener for mouse selection
+    document.getElementById('query_text').addEventListener('mouseup', () => {
+        const selectedText = window.getSelection().toString().trim();
+        if (selectedText.length > 0) {
+            highlightQuery(selectedText);  // Highlight the newly selected text
+        }
+    });
+
+    let clickCount = 0;
+/// Event listener for clicking inside the text box (clears highlights on second click)
+document.getElementById('query_text').addEventListener('click', () => {
+    clickCount++;  // Increase the click count
+
+    if (clickCount === 2) {
+        // On the second click, clear the highlights and reset click count
+        storedHighlightedText = '';
+        removeHighlights();
+        clickCount = 0;  // Reset the click count after clearing
+    }
+});
+
+    // Handle the slider input to reapply the highlight
+    document.addEventListener('DOMContentLoaded', () => {
+        const substringLengthSlider = document.getElementById('substring_length');
+        const substringLengthValue = document.getElementById('substring_length_value');
+
+        // Initialize the display with the default slider value
+        substringLengthValue.textContent = substringLengthSlider.value;
+
+        // Update the display value when the slider is moved
+        substringLengthSlider.addEventListener('input', () => {
+            substringLengthValue.textContent = substringLengthSlider.value;
+
+            // If there's a stored highlighted text, reapply the highlight
+            if (storedHighlightedText) {
+                highlightQuery(storedHighlightedText);  // Use the stored highlighted text
+            }
+        });
+    });
+
+    function removeHighlights() {
+    const queryTextElement = document.getElementById('query_text');
+
+    // Remove any <span> with the class 'highlight' from the text
+    queryTextElement.innerHTML = queryTextElement.innerHTML.replace(/<span class="highlight">(.*?)<\/span>/gi, '$1');
+}
+
+
+    // function highlightQuery(highlighted_query=null) {
+    //     var selectedText=""
+    //     if (highlighted_query === null) {
+    //          selectedText = window.getSelection().toString();
+    //     }
+    //     else {
+    //         selectedText = highlighted_query;
+    //     }
+    //     console.log(selectedText)
+    //     const words = selectedText.trim().split(/\s+/);
+    //     const substringLength = parseInt(document.getElementById('substring_length').value);
+    //     const article_id = document.getElementById('article_id').value;
+    //
+    //     if (words.length >= 3) {
+    //         const articleText = document.getElementById('article_text').innerText;
+    //
+    //         // Show loading spinner
+    //         showLoadingSpinner();
+    //
+    //         const queryTextElement = document.getElementById('query_text');
+    //         queryTextElement.innerHTML = queryTextElement.innerHTML.replace(
+    //         new RegExp(`(${selectedText})`, 'gi'),
+    //         `<span class="highlight">$1</span>`
+    //     );
+    //         fetch('/highlight_sentence', {
+    //             method: 'POST',
+    //             headers: {
+    //                 'Content-Type': 'application/json'
+    //             },
+    //             body: JSON.stringify({
+    //                 article_id: article_id,
+    //                 highlighted_query: selectedText,
+    //                 substring_length: substringLength
+    //             })
+    //         })
+    //             .then(response => response.json())
+    //             .then(data => {
+    //                 const highlightedText = data.highlighted_text;
+    //                 document.getElementById('article_text').innerHTML = articleText.replace(highlightedText, `<span class="highlight">${highlightedText}</span>`);
+    //                 document.getElementById('sentence_similarity').innerText = "Dot product similarity score between selected query text and the highlighted article text: " + data.similarity_score.toFixed(2);
+    //                 // Hide loading spinner after fetching data
+    //                 hideLoadingSpinner();
+    //             })
+    //             .catch(error => {
+    //                 console.error('Error:', error);
+    //                 hideLoadingSpinner(); // Hide spinner in case of error
+    //             });
+    //     } else {
+    //         // alert('Please select at least 3 words.');
+    //         console.log("alert")
+    //     }
+    // }
+
+    function showLoadingSpinner() {
+        document.getElementById('loading-spinner').style.display = 'block';
+    }
+
+    function hideLoadingSpinner() {
+        document.getElementById('loading-spinner').style.display = 'none';
+    }
+
+    function toggleTable() {
+        const detailsDiv = document.getElementById('retrieval_details');
+        const button = document.querySelector('button[onclick="toggleTable()"]');
+
+        if (detailsDiv.style.display === 'none') {
+            detailsDiv.style.display = 'block';
+            button.textContent = 'Hide Retrieval Details';
+        } else {
+            detailsDiv.style.display = 'none';
+            button.textContent = 'Show Retrieval Details';
+        }
+    }
+
+</script>
+
+</body>
+</html>
