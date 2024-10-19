@@ -50,7 +50,7 @@
 
         .query-display, .text-display {
             padding: 10px;
-            font-size: 16px;
+            font-size: 20px;
             background-color: #e0e0e0;
             border-radius: 4px;
             min-width: 200px;
@@ -62,7 +62,6 @@
             border: 1px solid #ccc;
             padding: 10px;
             border-radius: 4px;
-            min-height: 50px;
             overflow-y: auto;
         }
 
@@ -183,11 +182,11 @@
         <select id="model_selection" name="model_selection">
             <option value="">-----</option>
             <option value="BGE-M3">BGE-M3</option>
-            <option value="BGE-M3">BGE-M3(Coliee Finetuned)</option>
-            <option value="BGE-M3">Mpnet</option>
+            <option value="BGE-M3(Coliee Finetuned)">BGE-M3(Coliee Finetuned)</option>
+            <option value="Mpnet">Mpnet</option>
 
         </select>
-        <label for="query_pair">Select query Pair : &nbsp;</label>
+        <label for="query_pair">Select query pair : &nbsp;</label>
         <select id="query_pair" name="query_pair" onchange="fetchQueryDetails()">
             <option value="">-----</option>
             {% for pair in query_pairs %}
@@ -201,7 +200,7 @@
 
     <br>
     <div class="form-group">
-        <br>
+<!--        <br>-->
         <label for="article_id">Select article : &nbsp;</label>
         <select id="article_id" name="article_id" onchange="fetchArticle()">
             <option value="">Select an article ID</option>
@@ -287,10 +286,11 @@
     }
 
 
+
     function fetchQueryDetails() {
         const select = document.getElementById('query_pair');
         const queryPair = select.value;
-
+        console.log(document.getElementById('model_selection').value)
         if (queryPair === "") {
             document.getElementById('selected_query').innerText = "Select a query pair";
             document.getElementById('query_text').innerText = "";
@@ -306,7 +306,8 @@
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({pair: queryPair})
+            body: JSON.stringify({pair: queryPair,
+            selectedModel: document.getElementById('model_selection').value})
         })
             .then(response => response.json())
             .then(data => {

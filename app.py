@@ -4,9 +4,7 @@ import re
 from flask import Flask, render_template, request, jsonify
 import pandas as pd
 from sentence_transformers import SentenceTransformer
-model_name='../fine_tuning_bgm3/best_model'
-model= SentenceTransformer(model_name)
-
+model_name = '../fine_tuning_bgm3/best_model'
 app = Flask(__name__)
 # Read DataFrame from CSV (assuming it is saved as queries.csv in the data folder)
 def get_dataframe(file_name):
@@ -25,7 +23,17 @@ def bm25():
 
 @app.route('/get_bert_query_details', methods=['POST'])
 def get_bert_query_details():
+    selected_model = request.json['selectedModel']
     query_pair = request.json['pair']
+    global model_name
+
+    if selected_model=='BGE-M3(Coliee Finetuned)':
+        model_name = '../fine_tuning_bgm3/best_model'
+    elif selected_model=='BGE-M3':
+        model_name = 'BAAI/bge-m3'
+    elif selected_model=='Mpnet':
+        model_name = 'sentence-transformers/all-mpnet-base-v2'
+    print(model_name)
     df = get_dataframe('./bge-m3/bgem3_query_df_final.pkl')
     query_details = df[df['pair'] == query_pair][['article_num', 'predicted', 'precision', 'recall', 'f2']].to_dict('records')
     query_text = df.loc[df['pair'] == query_pair, 'query'].values[0]
@@ -204,6 +212,9 @@ def calculate_cosine_similarity(query_vector, target_vector):
     return transformed_cosine_sim
 @app.route('/highlight_sentence', methods=['POST'])
 def highlight_sentence():
+    #print name of selected model
+    print('selected model:',model_name)
+    model=SentenceTransformer(model_name)
     data = request.json
     article_id = data['article_id']
     article_text=lumi_frame.loc[lumi_frame['id'] == article_id, 'concated_article'].values[0]
@@ -231,4 +242,4 @@ def highlight_sentence():
     return jsonify(highlighted_text=most_similar_substring, similarity_score=max_sim)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=3000,debug=True)
+    app.run(host='0.0.0.0', port=3001,debug=True)
